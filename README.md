@@ -1,3 +1,3 @@
-# fin_risk_manage
-The CSV files are downloaded from Yahoo Finance as the data to test the scripts.
-Now the `estimate` function in `Estimate.py` file has not been completed; bugs are still in function `risk_opt_stck`. Actually, the files are uploaded to write test plan and test unit.
+# Financial Risk Management
+The CSV files from Yahoo Finance have been uploaded as the data to test the scripts.
+I think the basic part of codes has been finished. My following work is to finish the documentation with `sphinx`.
