@@ -50,11 +50,3 @@ def est_Ngbm_exp(lam,nums,files,period='daily'):
         dfs.loc[:,'mu'] = dfs.mu*con.year
     return dfs.dropna()
 
-
-def estimate(method={'RollWinGBM':est_gbm_win,'EWMGBM':est_gbm_exp, 'RollWinNGBM': est_Ngbm_win},**kwargs):
-    kwargs = {'RollWinGBM': {'win_len', 'file'},
-              'EWMGBM': {'lam','file'},
-              'RollWinNGBM': {'win_len', 'nums', 'files'}}
-    #assert kwargs<=variables[method], 'Wrong arguments for method '+method
-    print(method)
-    return method(kwargs)

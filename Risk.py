@@ -3,48 +3,48 @@
 from Configuration import *
 def risk_gbm(measure,p,para,T=5):
     if measure == 'VaR':
-        res = con.s0*(1-np.exp( sig*T**0.5*stats.norm.ppf(1-p)+T* mu))
+        res = con.s0*(1-np.exp( para.sig*T**0.5*stats.norm.ppf(1-p)+T*para.mu))
     elif measure == 'ES':
-        res = con.s0*(1-np.exp( mu*T)/(1-p)*stats.norm.cdf(stats.norm.ppf(1-p)- sig*T**0.5))
+        res = con.s0*(1-np.exp( para.mu*T)/(1-p)*stats.norm.cdf(stats.norm.ppf(1-p)- para.sig*T**0.5))
     else:
         return None
-    return pd.Series(res,index= index)
+    return pd.Series(res,index= para.index)
 
 def risk_gbm_mc(measure,p,para,T=5,size=1000000):
     percentile = np.sort(np.random.normal(size=size))[int(size*(1-p))]
     if measure == 'VaR':
-        return con.s0*(1-np.exp( sig*T**0.5*percentile+T* mu))
+        return con.s0*(1-np.exp( para.sig*T**0.5*percentile+T* para.mu))
     elif measure == 'ES':
-        return con.s0*(1-np.exp( mu*T)/(1-p)*stats.norm.cdf(percentile- sig*T**0.5))
+        return con.s0*(1-np.exp( para.mu*T)/(1-p)*stats.norm.cdf(percentile- para.sig*T**0.5))
     else:
         return None
 
 def risk_hist(measure,p,hist_len,para,T=5):
     if measure == 'VaR':
-        return - rolling(window=T,min_periods=T).sum().rolling(window=hist_len*con.year,min_periods=hist_len*con.year).quantile(1-p)*con.s0
+        return - para.rolling(window=T,min_periods=T).sum().rolling(window=hist_len*con.year,min_periods=hist_len*con.year).quantile(1-p)*con.s0
     elif measure == 'ES':
-        return - rolling(window=hist_len*con.year,min_periods=hist_len*con.year).apply(lambda x: x[x<x.quantile(1-p)].mean(),raw=False)*con.s0
+        return - para.rolling(window=hist_len*con.year,min_periods=hist_len*con.year).apply(lambda x: x[x<x.quantile(1-p)].mean(),raw=False)*con.s0
     else:
         return None
 
 def risk_hist_mc(measure,p,hist_len,para,T=5):
     if measure == 'VaR':
-        return - rolling(window=T,min_periods=T).sum().rolling(window=hist_len*con.year,min_periods=hist_len*con.year).quantile(p)*con.s0
+        return - para.rolling(window=T,min_periods=T).sum().rolling(window=hist_len*con.year,min_periods=hist_len*con.year).quantile(p)*con.s0
     elif measure == 'ES':
-        return - rolling(window=hist_len*con.year,min_periods=hist_len*con.year).apply(lambda x: x[x>x.quantile(p)].mean(),raw=False)*con.s0
+        return - para.rolling(window=hist_len*con.year,min_periods=hist_len*con.year).apply(lambda x: x[x>x.quantile(p)].mean(),raw=False)*con.s0
     else:
         return None
 
 def risk_2gbm_norm(measure,p,para,T=5):
-    ev =  w*np.exp( mu1*T)+(1- w)*np.exp( mu2*T)
-    sig2 =  w**2*np.exp((2* mu1+ sig1**2)*T)+(1- w)**2*np.exp((2* mu2+ sig2**2)*T)+2*(1- w)* w*np.exp(( mu1+ mu2+ rho* sig1* sig2)*T)-ev**2
+    ev =  para.w*np.exp( para.mu1*T)+(1- para.w)*np.exp( para.mu2*T)
+    sig2 =  para.w**2*np.exp((2* para.mu1+ para.sig1**2)*T)+(1- para.w)**2*np.exp((2* para.mu2+ para.sig2**2)*T)+2*(1- para.w)* para.w*np.exp(( para.mu1+ para.mu2+ para.rho* para.sig1* sig2)*T)-ev**2
     if measure == 'VaR':
-        return pd.Series(data=con.s0*(1-(ev+stats.norm.ppf(1-p)*sig2**0.5)),index= index)
+        return pd.Series(data=con.s0*(1-(ev+stats.norm.ppf(1-p)*sig2**0.5)),index= para.index)
     elif measure == 'ES':
         def tmp(ev,sig2):
             return con.s0*(1-stats.norm.expect(lambda x:x,loc=ev,scale=sig2**0.5,lb=-np.inf,ub=(ev+stats.norm.ppf(1-p)*sig2**0.5))/(1-p))
         tmp = np.vectorize(tmp)
-        return pd.Series(tmp(ev,sig2),index= index)
+        return pd.Series(tmp(ev,sig2),index= para.index)
     else:
         return None
 
@@ -91,9 +91,9 @@ def risk_Ngbm_mc_short(measure,p,paras,T=5,size=1000000):
 
 def risk_gbm_short(measure,p,para,T=5,s0=10000):
     if measure == 'VaR':
-        return con.s0*(np.exp( sig*T**0.5*stats.norm.ppf(p)+T* mu)-1)
+        return con.s0*(np.exp( para.sig*T**0.5*stats.norm.ppf(p)+T* para.mu)-1)
     elif measure == 'ES':
-        return con.s0*(np.exp( mu*T)/(1-p)*stats.norm.cdf(-stats.norm.ppf(p)+ sig*T**0.5)-1)
+        return con.s0*(np.exp( para.mu*T)/(1-p)*stats.norm.cdf(-stats.norm.ppf(p)+ para.sig*T**0.5)-1)
     else:
         return None
 
@@ -124,17 +124,29 @@ def backtest_risk(measure,p,risk_method,est_file,chg_win,cmp_win,price_file,posi
     return except_nums
 
 from utils import * 
-def risk_opt_stck(measure,p,type,ratio,para,seed=None,T=5,size=1000000):
+def risk_opt_stck(measure,p,option,ratio,para,seed=None,T=5,size=1000000):
     def value(mu,sig):
-        ops_num = con.s0*ratio/bs_option(type, mu, sig,con.year,T,1)
+        ops_num = con.s0*ratio/bs_option(option, mu, sig,T,con.s0,con.s0)
         if seed is not None:
             np.random.seed(233)
-        st = np.exp(( mu- sig**2/2)*T+ sig*T**0.5*np.random.normal(size=size))
-        return np.nanquantile(con.s0-bs_option(type, mu, sig,con.year-T,1,st)*ops_num-st*(1-ratio)*con.s0,p)
+        st = np.exp(( mu- sig**2/2)*T+ sig*T**0.5*np.random.normal(size=size))*con.s0
+        if measure == 'VaR':
+            return np.nanquantile(con.s0-bs_option(option, mu, sig,con.year-T,1,st)*ops_num-st*(1-ratio),p)
     mus, sigs = para['mu'].values, para['sig'].values
-    if measure == 'VaR':
-        return pd.Series([value(mus[i],sigs[i]) for i in range(len(para))],index=para.index)
+    return pd.Series([value(mus[i],sigs[i]) for i in range(len(para))],index=para.index)
 
-def hedge_opt_stck(measure,proportion,p,type,para,seed=None,T=5,size=1000000):
-    prev = risk_opt_stck(measure,p,type,0,para,seed=None,T=5,size=1000000)
-    return optimize.fsolve(lambda x: risk_opt_stck(measure,p,type,x,para,seed=None,T=5,size=1000000)-prev*proportion,0.99)
+def hedge_opt_stck(measure,proportion,p,option,para,init,seed=None,T=5,size=1000000):
+    def value(mu,sig,ratio):
+        ops_num = con.s0*ratio/bs_option(option, mu, sig,T,con.s0,con.s0)
+        if seed is not None:
+            np.random.seed(233)
+        st = np.exp(( mu- sig**2/2)*T+ sig*T**0.5*np.random.normal(size=size))*con.s0
+        sample = con.s0-bs_option(option, mu, sig,con.year-T,1,st)*ops_num-st*(1-ratio)
+        if measure == 'VaR':
+            return np.nanquantile(sample,p)
+        else:
+            return np.mean(sample[sample>np.nanquantile(sample,p)])
+    mus, sigs = para['mu'].values, para['sig'].values
+    prev = [value(mus[i],sigs[i],0) for i in range(len(para))]
+    #return optimize.fsolve(lambda x: risk_opt_stck(measure,p,option,x,para,seed=None,T=5,size=1000000)-prev*proportion,init,epsfcn=1e-4,xtol=1e-2)
+    return pd.Series([optimize.fsolve(lambda x: value(mus[i],sigs[i],x)-prev[i]*proportion,init,epsfcn=1e-4)[0] for i in range(len(para))],index=para.index)

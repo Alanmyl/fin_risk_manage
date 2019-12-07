@@ -22,11 +22,10 @@ def build_portN(nums,files):
         res['w'+str(i+1)] = files[i].adj_close*nums[i]/summ
     return res
 
-def bs_option(type,r,sig,T,K,s0):
-    r=r/con.year
+def bs_option(option,r,sig,T,K,s0):
     d1 = (np.log(s0/K)+(r+sig**2/2)*T)/sig/T**0.5
     d2 = d1-sig*T**0.5
-    if type == 'put':
+    if option == 'put':
         return stats.norm.cdf(-d2)*K*np.exp(-r*T)-stats.norm.cdf(-d1)*s0
     else:
         return stats.norm.cdf(d1)*s0-stats.norm.cdf(d2)*K*np.exp(-r*T)
