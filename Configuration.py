@@ -7,11 +7,16 @@ import os
 import scipy.stats as stats
 import scipy.optimize as optimize
 
+
 class conf:
-    def __init__(self,year=252):
+    ''' class to define the basic public variables in the whole project, 
+    '''
+
+    def __init__(self, year=252):
         self.year = 252
         self.s0 = 10000
         self.path = '/home/alanmei/Alan/Columbia University/Financial Risk Management/'
-        self.start_date = dt.datetime(1997,9,5)
+        #self.start_date = dt.datetime(1997, 9, 5)
+
 
 con = conf()
