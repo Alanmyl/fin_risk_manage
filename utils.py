@@ -3,20 +3,41 @@
 from Configuration import *
 
 
-def pre_data(path, header=0):
-    file = pd.read_csv(path, header=header, index_col=0).dropna()
+def pre_data(path: str, header: int = 0, colname: str = 'Adj Close') -> pd.DataFrame:
+    '''function to read financial data with dates in the first column with type `YYYY-mm-dd` or `mm/dd/YYYY`.
+
+    Args:
+        path: the absolute or the relative path of the file to read.
+        header: the line which will be taken as column names.
+        colname: name of the column where the price is. 
+
+    Returns:
+        A dataframe with ascending dates indices without `NA`.
+    '''
+    data = pd.read_csv(path, header=header, index_col=0).dropna()
     try:
-        file.index = file.index.map(
+        data.index = data.index.map(
             lambda x: dt.datetime.strptime(x, '%Y-%m-%d'))
     except ValueError:
-        file.index = file.index.map(
+        data.index = data.index.map(
             lambda x: dt.datetime.strptime(x, '%m/%d/%Y'))
-    file = file.rename(columns={'Adj Close': 'adj_close'})
-    return file.sort_index()
+    data = data.rename(columns={colname: 'adj_close'})
+    return data.sort_index()
 
 
-def logrtn(file):
-    return pd.Series(np.log(file.adj_close.iloc[1:].values/file.adj_close.iloc[:-1].values), index=file.index[1:])
+def logrtn(data: Union[pd.DataFrame, pd.Series]) -> pd.Series:
+    '''function to calculate log returns from the asset price.
+
+    Args:
+        data: a dataframe containing column name `adj_close` as price or a series of price.
+
+    Returns:
+        A Series of log returns with almost the same index as `data`.
+    '''
+    if type(data) == pd.DataFrame:
+        return pd.Series(np.log(data.adj_close.iloc[1:].values / data.adj_close.iloc[:-1].values), index=data.index[1:])
+    else:
+        return pd.Series(np.log(data.iloc[1:].values / data.iloc[:-1].values), index=data.index[1:])
 
 
 def build_port2(num1, num2, file1, file2):

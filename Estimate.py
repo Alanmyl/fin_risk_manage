@@ -4,8 +4,8 @@ from Configuration import *
 from utils import build_port2, logrtn, build_portN
 
 
-def est_gbm_win(win_len: Union[int, float], prices: pd.DataFrame, period: str = 'daily') -> pd.DataFrame:
-    '''Estimate the parameters required in GBM model by averaging values in a rolling fixed-length window
+def est_gbm_win(win_len: Union[int, float], prices: Union[pd.Series, pd.DataFrame], period: str = 'daily') -> pd.DataFrame:
+    '''Estimate the parameters required in a single stock GBM model by averaging historical data in a rolling fixed-length window.
 
     Args:
         win_len: number of years of the window length for smoothing.
@@ -13,7 +13,7 @@ def est_gbm_win(win_len: Union[int, float], prices: pd.DataFrame, period: str = 
         period: the default is the estimates of daily data, but user can also specify the period.
 
     Returns:
-        A DataFrame including necessary parameter columns with datetime as index and columns 'logrtn','mu' and 'sig',
+        A DataFrame including necessary parameter columns with datetime as index and columns `logrtn`, `mu` and `sig`,
         where 'mu' and 'sig' are estimated values of GBM model.
     '''
     assert period in ['daily', 'annual'], 'Wrong argument of period '+period
@@ -28,18 +28,19 @@ def est_gbm_win(win_len: Union[int, float], prices: pd.DataFrame, period: str = 
     return df.dropna()
 
 
-def est_gbm_exp(lam: Union[int, float], prices: pd.DataFrame, period: str = 'daily'):
-    '''Estimate the parameters required in GBM model by giving exponential weights to the historical data.
+def est_gbm_exp(lam: Union[int, float], prices: pd.DataFrame, period: str = 'daily') -> pd.DataFrame:
+    '''Estimate the parameters required in a single stock GBM model by giving exponential weights to the historical data.
 
     Args:
-        lam: 
+        lam: the weight of past data, larger lambda leads to slower decay.
         prices: the adjusted price of the financial assets.
         period: the default is the estimates of daily data, but user can also specify the period.
 
     Returns:
-        A DataFrame including necessary parameter columns with datetime as index and columns 'logrtn','mu' and 'sig',
+        A DataFrame including necessary parameter columns with datetime as index and columns `logrtn`, `mu` and `sig`,
         where 'mu' and 'sig' are estimated values of GBM model.
     '''
+    assert period in ['daily', 'annual'], 'Wrong argument '+period
     df = logrtn(prices).to_frame(name='logrtn')
     df['sig'] = df['logrtn'].ewm(alpha=1-lam).std()
     df['mu'] = df['logrtn'].ewm(alpha=1-lam).mean() + \
@@ -51,7 +52,20 @@ def est_gbm_exp(lam: Union[int, float], prices: pd.DataFrame, period: str = 'dai
     return df.dropna()
 
 
-def est_2gbm_win(win_len, num1, num2, file1, file2, period='daily'):
+def est_2gbm_win(win_len: Union[int, float], num1, num2, file1: pd.DataFrame, file2: pd.DataFrame, period: str = 'daily'):
+    '''Estimate the parameters required in two stocks GBM model by averaging historical data in a rolling fixed-length window
+
+    Args:
+        win_len: number of years of the window length for smoothing.
+        num1: the number of stock1 at the beginning, it can be a number or an array-like type with the same length as `file1`.
+        num2: the number of stock2 at the beginning, it can be a number or an array-like type with the same length as `file2`.
+        file: the adjusted price of the financial assets.
+        period: the default is the estimates of daily data, but user can also specify the period.
+
+    Returns:
+        A DataFrame including necessary parameter columns with datetime as index and columns `logrtn`, `mu` and `sig`,
+        where 'mu' and 'sig' are estimated values of GBM model.
+    '''
     df = pd.concat([est_gbm_win(win_len, file1), est_gbm_win(
         win_len, file2)], axis=1, join='inner')
     df.columns = ['logrtn1', 'sig1', 'mu1', 'logrtn2', 'sig2', 'mu2']
