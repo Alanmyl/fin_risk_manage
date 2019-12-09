@@ -1,27 +1,50 @@
 # -*- coding: utf-8 -*-
 # File 'Estimate.py' contains functions to estimate parameters with different methods.
 from Configuration import *
-from utils import *
+from utils import build_port2, logrtn, build_portN
 
 
-def est_gbm_win(win_len, file, period='daily'):
-    df = logrtn(file).to_frame(name='logrtn')
+def est_gbm_win(win_len: Union[int, float], prices: pd.DataFrame, period: str = 'daily') -> pd.DataFrame:
+    '''Estimate the parameters required in GBM model by averaging values in a rolling fixed-length window
+
+    Args:
+        win_len: number of years of the window length for smoothing.
+        prices: the adjusted price of the financial assets.
+        period: the default is the estimates of daily data, but user can also specify the period.
+
+    Returns:
+        A DataFrame including necessary parameter columns with datetime as index and columns 'logrtn','mu' and 'sig',
+        where 'mu' and 'sig' are estimated values of GBM model.
+    '''
+    assert period in ['daily', 'annual'], 'Wrong argument of period '+period
+    df = logrtn(prices).to_frame(name='logrtn')
     df['sig'] = df.logrtn.rolling(window=win_len*con.year).std()
     df['mu'] = df.logrtn.rolling(
         window=win_len*con.year).mean()+df.logrtn.rolling(window=win_len*con.year).var()/2
-    df.index = file.index[1:]
+    df.index = prices.index[1:]
     if period == 'annual':
         df.loc[:, 'sig'] = df.sig*con.year**0.5
         df.loc[:, 'mu'] = df.mu*con.year
     return df.dropna()
 
 
-def est_gbm_exp(lam, file, period='daily'):
-    df = logrtn(file).to_frame(name='logrtn')
+def est_gbm_exp(lam: Union[int, float], prices: pd.DataFrame, period: str = 'daily'):
+    '''Estimate the parameters required in GBM model by giving exponential weights to the historical data.
+
+    Args:
+        lam: 
+        prices: the adjusted price of the financial assets.
+        period: the default is the estimates of daily data, but user can also specify the period.
+
+    Returns:
+        A DataFrame including necessary parameter columns with datetime as index and columns 'logrtn','mu' and 'sig',
+        where 'mu' and 'sig' are estimated values of GBM model.
+    '''
+    df = logrtn(prices).to_frame(name='logrtn')
     df['sig'] = df['logrtn'].ewm(alpha=1-lam).std()
     df['mu'] = df['logrtn'].ewm(alpha=1-lam).mean() + \
         df['logrtn'].ewm(alpha=1-lam).var()/2
-    df.index = file.index[1:]
+    df.index = prices.index[1:]
     if period == 'annual':
         df.loc[:, 'sig'] = df.sig*con.year**0.5
         df.loc[:, 'mu'] = df.mu*con.year

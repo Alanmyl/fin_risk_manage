@@ -5,7 +5,12 @@ from Configuration import *
 
 def pre_data(path, header=0):
     file = pd.read_csv(path, header=header, index_col=0).dropna()
-    file.index = file.index.map(lambda x: dt.datetime.strptime(x, '%Y-%m-%d'))
+    try:
+        file.index = file.index.map(
+            lambda x: dt.datetime.strptime(x, '%Y-%m-%d'))
+    except ValueError:
+        file.index = file.index.map(
+            lambda x: dt.datetime.strptime(x, '%m/%d/%Y'))
     file = file.rename(columns={'Adj Close': 'adj_close'})
     return file.sort_index()
 
@@ -30,10 +35,10 @@ def build_portN(nums, files):
     return res
 
 
-def bs_option(option, r, sig, T, K, s0):
+def bs_option(opt_type, r, sig, T, K, s0):
     d1 = (np.log(s0/K)+(r+sig**2/2)*T)/sig/T**0.5
     d2 = d1-sig*T**0.5
-    if option == 'put':
+    if opt_type == 'put':
         return stats.norm.cdf(-d2)*K*np.exp(-r*T)-stats.norm.cdf(-d1)*s0
     else:
         return stats.norm.cdf(d1)*s0-stats.norm.cdf(d2)*K*np.exp(-r*T)

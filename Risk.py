@@ -2,6 +2,7 @@
 # File 'Risk.py' contains functions to compute risk under different measure and assumptions
 from utils import *
 from Configuration import *
+import scipy.optimize as optimize
 
 
 def risk_gbm(measure, p, para, T=5):
@@ -146,40 +147,56 @@ def backtest_stock(pos, prices, T=5):
             lambda x: abs(np.max(x[1:] - x[0])), raw=True)*con.s0 / prices.adj_close
 
 
-def compare_backtest(theory_nums, reality_nums, cmp_win):
-    diff = (theory_nums - reality_nums).dropna()
+def compare_backtest(theory_risk, reality_risk, cmp_win):
+    diff = (theory_risk - reality_risk).dropna()
     except_nums = diff.rolling(window=con.year*cmp_win, min_periods=con.year *
                                cmp_win).apply(lambda x: (x > 0).sum(), raw=True)
     return except_nums.dropna()
 
 
-def risk_opt_stck(measure, p, option, ratio, para, seed=None, T=5, size=1000000):
-    def value(mu, sig):
-        ops_num = con.s0*ratio/bs_option(option, mu, sig, T, con.s0, con.s0)
+def risk_opt_stck(measure, p, opt_type, ratio, stock, risk_free, options_vol, seed=None, T=5, size=1000000):
+    risk_free.name, options_vol.name = 'r', 'vol'
+    df = pd.concat([stock, options_vol, risk_free], axis=1, join='inner')
+    ops_num = con.s0*ratio / \
+        bs_option(opt_type, df['r'], df['vol'], 1, con.s0, con.s0)
+    ops_price = bs_option(
+        opt_type, df['r'], df['vol'], 1-T/con.year, con.s0, con.s0)
+    mus, sigs = df['mu'].values, df['sig'].values
+
+    def sample(stock_mu, stock_sig, opt_num, opt_price):
         if seed is not None:
             np.random.seed(233)
-        st = np.exp((mu - sig**2/2)*T + sig*T**0.5 *
+        st = np.exp((stock_mu - stock_sig**2/2)*T + stock_sig*T**0.5 *
                     np.random.normal(size=size))*con.s0
-        if measure == 'VaR':
-            return np.nanquantile(con.s0-bs_option(option, mu, sig, con.year-T, 1, st)*ops_num-st*(1-ratio), p)
-    mus, sigs = para['mu'].values, para['sig'].values
-    return pd.Series([value(mus[i], sigs[i]) for i in range(len(para))], index=para.index)
-
-
-def hedge_opt_stck(measure, proportion, p, option, para, init, seed=None, T=5, size=1000000):
-    def value(mu, sig, ratio):
-        ops_num = con.s0*ratio/bs_option(option, mu, sig, T, con.s0, con.s0)
-        if seed is not None:
-            np.random.seed(233)
-        st = np.exp((mu - sig**2/2)*T + sig*T**0.5 *
-                    np.random.normal(size=size))*con.s0
-        sample = con.s0-bs_option(option, mu, sig,
-                                  con.year-T, 1, st)*ops_num-st*(1-ratio)
+        sample = con.s0-opt_num*opt_price-st*(1-ratio)
         if measure == 'VaR':
             return np.nanquantile(sample, p)
         else:
             return np.mean(sample[sample > np.nanquantile(sample, p)])
-    mus, sigs = para['mu'].values, para['sig'].values
-    prev = [value(mus[i], sigs[i], 0) for i in range(len(para))]
+
+    return pd.Series([sample(mus[i], sigs[i], ops_num[i], ops_price[i]) for i in range(len(df))], index=df.index)
+
+
+def hedge_opt_stck(measure, p, opt_type, proportion, stock, risk_free, options_vol, init, seed=None, T=5, size=1000000):
+    risk_free.name, options_vol.name = 'r', 'vol'
+    df = pd.concat([stock, options_vol, risk_free], axis=1, join='inner')
+    ops_price1 = bs_option(
+        opt_type, df['r'], df['vol'], con.year, con.s0, con.s0)
+    ops_price2 = bs_option(
+        opt_type, df['r'], df['vol'], con.year-T, con.s0, con.s0)
+    mus, sigs = df['mu'].values, df['sig'].values
+
+    def sample(stock_mu, stock_sig, opt_price1, opt_price2, ratio):
+        if seed is not None:
+            np.random.seed(233)
+        st = np.exp((stock_mu - stock_sig**2/2)*T + stock_sig*T**0.5 *
+                    np.random.normal(size=size))*con.s0
+        sample = con.s0-con.s0/opt_price1*opt_price2-st*(1-ratio)
+        if measure == 'VaR':
+            return np.nanquantile(sample, p)
+        else:
+            return np.mean(sample[sample > np.nanquantile(sample, p)])
+    prev = [sample(mus[i], sigs[i], ops_price1[i], ops_price2[i], 0)
+            for i in range(len(df))]
     # return optimize.fsolve(lambda x: risk_opt_stck(measure,p,option,x,para,seed=None,T=5,size=1000000)-prev*proportion,init,epsfcn=1e-4,xtol=1e-2)
-    return pd.Series([optimize.fsolve(lambda x: value(mus[i], sigs[i], x)-prev[i]*proportion, init, epsfcn=1e-4)[0] for i in range(len(para))], index=para.index)
+    return pd.Series([optimize.fsolve(lambda x: sample(mus[i], sigs[i], ops_price1[i], ops_price2[i], x)-prev[i]*proportion, init, epsfcn=1e-4)[0] for i in range(len(df))], index=df.index)
