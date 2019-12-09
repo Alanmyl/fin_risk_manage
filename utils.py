@@ -40,7 +40,12 @@ def logrtn(data: Union[pd.DataFrame, pd.Series]) -> pd.Series:
         return pd.Series(np.log(data.iloc[1:].values / data.iloc[:-1].values), index=data.index[1:])
 
 
-def build_port2(num1, num2, file1, file2):
+def build_port2(num1, num2, file1:Union[pd.Series, pd.DataFrame], file2):
+    '''function to calculate the values of a portfolio of two stocks.
+    
+    Args:
+        num1: 
+    '''
     res = (file1.adj_close*num1+file2.adj_close *
            num2).to_frame(name='adj_close')
     res['w'] = file1.adj_close*num1/res.adj_close
