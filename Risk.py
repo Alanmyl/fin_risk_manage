@@ -231,9 +231,9 @@ def risk_gbm_short(measure, p: Union[float, int], para, T=5, s0=10000) -> pd.Ser
     '''
     assert measure in ['ES', 'VaR'], 'Wrong argument '+measure
     if measure == 'VaR':
-        return con.s0*(np.exp(para.sig*T**0.5*stats.norm.ppf(p)+T * para.mu)-1)
+        return con.s0 * (np.exp(para.sig * T ** 0.5 * stats.norm.ppf(p) + T * para.mu) - 1)
     else:
-        return con.s0*(np.exp(para.mu*T)/(1-p)*stats.norm.cdf(-stats.norm.ppf(p) + para.sig*T**0.5)-1)
+        return con.s0 * (np.exp(para.mu * T) / (1 - p) * stats.norm.cdf(-stats.norm.ppf(p) + para.sig * T ** 0.5) - 1)
 
 
 def risk_2gbm_mc_short(measure, p: Union[float, int], para, T=5, size=1000000) -> pd.Series:
@@ -256,8 +256,8 @@ def risk_2gbm_mc_short(measure, p: Union[float, int], para, T=5, size=1000000) -
     para['measure'] = measure
 
     def sampling(w, mu1, sig1, mu2, sig2, measure: str) -> float:
-        x = w*np.exp((mu1-0.5*sig1**2)*T+sig1*b1*T**0.5)+(1-w) * \
-            np.exp((mu2-0.5*sig2**2)*T+sig2*b2*T**0.5)
+        x = w * np.exp((mu1 - 0.5 * sig1 ** 2) * T + sig1 * b1 * T ** 0.5) + \
+            (1 - w) * np.exp((mu2 - 0.5 * sig2 ** 2) * T + sig2 * b2 * T ** 0.5)
         if measure == 'VaR':
             res = np.nanquantile(x, p)
         else:
@@ -278,7 +278,22 @@ def backtest_stock(prices: pd.Series, T: int = 5) -> pd.Series:
     Returns:
         a series of stock returns.
     '''
-    return prices.rolling(window=T+1, min_periods=T+1).apply(lambda x: x[-1]/x[0], raw=True)*con.s0
+    return prices.rolling(window=T + 1, min_periods=T + 1).apply(lambda x: x[-1] / x[0], raw=True) * con.s0
+
+
+def backtest_opt_stck(stock_prices: pd.Series, opt_prices: pd.Series, ratio: Union[int, float], T: int = 5) -> pd.Series:
+    '''function to compute stock price changes in days.
+
+    Args:
+        stock_prices: a sequence of stock price with datetime index.
+        opt_prices: a sequence of options price with datetime index.
+        T: length of period to calculate stock return.
+
+    Returns:
+        a series of portfolio returns.
+    '''
+    prices = stock_prices*(1-ratio)+opt_prices*ratio
+    return prices.rolling(window=T + 1, min_periods=T + 1).apply(lambda x: x[-1] / x[0], raw=True) * con.s0
 
 
 def compare_backtest(theory_risk: pd.Series, reality_risk: pd.Series, cmp_win: Union[float, int]) -> pd.Series:
