@@ -18,9 +18,9 @@ def est_gbm_win(win_len: Union[int, float], prices: Union[pd.Series, pd.DataFram
     '''
     assert period in ['daily', 'annual'], 'Wrong argument of period '+period
     df = logrtn(prices).to_frame(name='logrtn')
-    df['sig'] = df.logrtn.rolling(window=win_len*con.year).std()
+    df['sig'] = df.logrtn.rolling(window=int(win_len*con.year)).std()
     df['mu'] = df.logrtn.rolling(
-        window=win_len*con.year).mean()+df.logrtn.rolling(window=win_len*con.year).var()/2
+        window=int(win_len*con.year)).mean()+df.logrtn.rolling(window=int(win_len*con.year)).var()/2
     df.index = prices.index[1:]
     if period == 'annual':
         df.loc[:, 'sig'] = df.sig*con.year**0.5
@@ -64,7 +64,7 @@ def est_2gbm_win(win_len: Union[int, float], num1, num2, file1: pd.Series, file2
         file1, file2: the adjusted price of the financial assets.
         period: the default is the estimates of daily data, but user can also specify the period.
         rho: whether to generate $\rho$ for the assumption that two stocks follow GBM and their
-         correlation of Brownian motion is $\rho$. Required by `risk_gbm_norm`.
+        correlation of Brownian motion is $\rho$. Required by `risk_gbm_norm`.
 
     Returns:
         A DataFrame with datetime as index and columns `logrtn`, `mu` and `sig`, where 'mu' and 'sig' are estimated values of GBM model.
