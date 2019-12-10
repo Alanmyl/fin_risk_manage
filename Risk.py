@@ -368,9 +368,9 @@ def hedge_opt_stck(measure: str, p: Union[int, float], opt_type: str, proportion
     risk_free.name, options_vol.name = 'r', 'vol'
     df = pd.concat([stock, options_vol, risk_free], axis=1, join='inner')
     ops_price1 = bs_option(
-        opt_type, df['r'], df['vol'], con.year, con.s0, con.s0)
+        opt_type, df['r'], df['vol'], 1, con.s0, con.s0)
     ops_price2 = bs_option(
-        opt_type, df['r'], df['vol'], con.year-T, con.s0, con.s0)
+        opt_type, df['r'], df['vol'], 1-T/con.year, con.s0, con.s0)
     mus, sigs = df['mu'].values, df['sig'].values
 
     def sample(stock_mu, stock_sig, opt_price1, opt_price2, ratio):
@@ -378,7 +378,7 @@ def hedge_opt_stck(measure: str, p: Union[int, float], opt_type: str, proportion
             np.random.seed(233)
         st = np.exp((stock_mu - stock_sig**2/2)*T + stock_sig*T**0.5 *
                     np.random.normal(size=size))*con.s0
-        sample = con.s0-con.s0/opt_price1*opt_price2-st*(1-ratio)
+        sample = con.s0 - con.s0 / opt_price1 * opt_price2 - st * (1 - ratio)
         if measure == 'VaR':
             return np.nanquantile(sample, p)
         else:
