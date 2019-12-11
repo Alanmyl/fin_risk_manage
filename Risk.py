@@ -69,9 +69,9 @@ def risk_hist(measure: str, p: Union[float, int], hist_len: Union[float, int], p
     '''
     assert measure in ['ES', 'VaR'], 'Wrong argument '+measure
     if measure == 'VaR':
-        return - para.rolling(window=T, min_periods=T).sum().rolling(window=int(hist_len*con.year), min_periods=int(hist_len)*con.year).quantile(1-p)*con.s0
+        return (- para.rolling(window=T, min_periods=T).sum().rolling(window=int(hist_len*con.year), min_periods=int(hist_len)*con.year).quantile(1-p)*con.s0).dropna()
     else:
-        return - para.rolling(window=int(hist_len*con.year), min_periods=int(hist_len*con.year)).apply(lambda x: x[x < x.quantile(1-p)].mean(), raw=False)*con.s0
+        return (- para.rolling(window=int(hist_len*con.year), min_periods=int(hist_len*con.year)).apply(lambda x: x[x < x.quantile(1-p)].mean(), raw=False)*con.s0).dropna()
 
 
 def risk_hist_short(measure, p: Union[float, int], hist_len, para, T=5) -> pd.Series:
