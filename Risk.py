@@ -62,7 +62,7 @@ def risk_hist(measure: str, p: Union[float, int], hist_len: Union[float, int], p
         p: percentile of VaR or ES.
         para: estimated parameters containing columns `mu` and `sig`.
         T: future T days to compute risk.
-        hist_len: the number of historical days that are taken as sample.
+        hist_len: the number of historical years that are taken as sample.
 
     Returns:
         A series of risk estimates.
@@ -278,7 +278,7 @@ def backtest_stock(prices: pd.Series, T: int = 5) -> pd.Series:
     Returns:
         a series of stock returns.
     '''
-    return prices.rolling(window=T + 1, min_periods=T + 1).apply(lambda x: x[-1] / x[0], raw=True) * con.s0
+    return prices.rolling(window=T + 1, min_periods=T + 1).apply(lambda x: x[-1] / x[0] - 1, raw=True) * con.s0
 
 
 def backtest_opt_stck(stock_prices: pd.Series, opt_prices: pd.Series, ratio: Union[int, float], T: int = 5) -> pd.Series:
