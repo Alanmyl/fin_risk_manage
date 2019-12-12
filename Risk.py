@@ -60,7 +60,7 @@ def risk_hist(measure: str, p: Union[float, int], hist_len: Union[float, int], p
     Args:
         measure: `VaR` or `ES`.
         p: percentile of VaR or ES.
-        para: estimated parameters containing columns `mu` and `sig`.
+        para: a sequence of asset return.
         T: future T days to compute risk.
         hist_len: the number of historical years that are taken as sample.
 
@@ -71,7 +71,7 @@ def risk_hist(measure: str, p: Union[float, int], hist_len: Union[float, int], p
     if measure == 'VaR':
         return (- para.rolling(window=T, min_periods=T).sum().rolling(window=int(hist_len*con.year), min_periods=int(hist_len)*con.year).quantile(1-p)*con.s0).dropna()
     else:
-        return (- para.rolling(window=int(hist_len*con.year), min_periods=int(hist_len*con.year)).apply(lambda x: x[x < x.quantile(1-p)].mean(), raw=False)*con.s0).dropna()
+        return (- para.rolling(window=T, min_periods=T).sum().rolling(window=int(hist_len*con.year), min_periods=int(hist_len*con.year)).apply(lambda x: x[x < x.quantile(1-p)].mean(), raw=False)*con.s0).dropna()
 
 
 def risk_hist_short(measure, p: Union[float, int], hist_len, para, T=5) -> pd.Series:
@@ -80,7 +80,7 @@ def risk_hist_short(measure, p: Union[float, int], hist_len, para, T=5) -> pd.Se
     Args:
         measure: `VaR` or `ES`.
         p: percentile of VaR or ES.
-        para: estimated parameters containing columns `mu` and `sig`.
+        para: a sequence of asset return.
         T: future T days to compute risk.
         hist_len: the number of historical days that are taken as sample.
 
@@ -89,9 +89,9 @@ def risk_hist_short(measure, p: Union[float, int], hist_len, para, T=5) -> pd.Se
     '''
     assert measure in ['ES', 'VaR'], 'Wrong argument '+measure
     if measure == 'VaR':
-        return - para.rolling(window=T, min_periods=T).sum().rolling(window=int(hist_len*con.year), min_periods=int(hist_len*con.year)).quantile(p)*con.s0
+        return (- para.rolling(window=T, min_periods=T).sum().rolling(window=int(hist_len*con.year), min_periods=int(hist_len*con.year)).quantile(p)*con.s0).dropna()
     else:
-        return - para.rolling(window=int(hist_len*con.year), min_periods=int(hist_len*con.year)).apply(lambda x: x[x > x.quantile(p)].mean(), raw=False)*con.s0
+        return (- para.rolling(window=T, min_periods=T).sum().rolling(window=int(hist_len*con.year), min_periods=int(hist_len*con.year)).apply(lambda x: x[x > x.quantile(p)].mean(), raw=False)*con.s0).dropna()
 
 
 def risk_2gbm_norm(measure, p: Union[float, int], para, T=5) -> pd.Series:
@@ -293,7 +293,7 @@ def backtest_opt_stck(stock_prices: pd.Series, opt_prices: pd.Series, ratio: Uni
         a series of portfolio returns.
     '''
     prices = stock_prices*(1-ratio)+opt_prices*ratio
-    return prices.rolling(window=T + 1, min_periods=T + 1).apply(lambda x: x[-1] / x[0], raw=True) * con.s0
+    return prices.rolling(window=T + 1, min_periods=T + 1).apply(lambda x: x[-1] / x[0] - 1, raw=True) * con.s0
 
 
 def compare_backtest(theory_risk: pd.Series, reality_risk: pd.Series, cmp_win: Union[float, int]) -> pd.Series:
