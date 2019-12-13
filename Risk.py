@@ -122,7 +122,7 @@ def risk_2gbm_norm(measure, p: Union[float, int], para, T=5) -> pd.Series:
 
 
 def risk_2gbm_mc(measure, p: Union[float, int], para, T=5, size=1000000) -> pd.Series:
-    '''function to compute Value at Risk and Expected Shortfall assuming to long two stocks follow GBM. 
+    '''function to compute Value at Risk and Expected Shortfall assuming to long two stocks follow GBM.
     Then we get their joint distribution through simulation.
 
     Args:
@@ -152,7 +152,7 @@ def risk_2gbm_mc(measure, p: Union[float, int], para, T=5, size=1000000) -> pd.S
 
 
 def risk_Ngbm_mc(measure, p: Union[float, int], paras, T=5, size=1000000) -> pd.Series:
-    '''function to compute Value at Risk and Expected Shortfall assuming to long N stocks follow GBM. 
+    '''function to compute Value at Risk and Expected Shortfall assuming to long N stocks follow GBM.
     Then we get their joint distribution through simulation.
 
     Args:
@@ -185,7 +185,7 @@ def risk_Ngbm_mc(measure, p: Union[float, int], paras, T=5, size=1000000) -> pd.
 
 
 def risk_Ngbm_mc_short(measure, p: Union[float, int], paras, T=5, size=1000000) -> pd.Series:
-    '''function to compute Value at Risk and Expected Shortfall assuming to short N stocks following GBM. 
+    '''function to compute Value at Risk and Expected Shortfall assuming to short N stocks following GBM.
     Then we get their joint distribution through simulation.
 
     Args:
@@ -237,7 +237,7 @@ def risk_gbm_short(measure, p: Union[float, int], para, T=5, s0=10000) -> pd.Ser
 
 
 def risk_2gbm_mc_short(measure, p: Union[float, int], para, T=5, size=1000000) -> pd.Series:
-    '''function to compute Value at Risk and Expected Shortfall assuming to short N stocks following GBM. 
+    '''function to compute Value at Risk and Expected Shortfall assuming to short N stocks following GBM.
     Then we get their joint distribution through simulation.
 
     Args:
@@ -268,8 +268,8 @@ def risk_2gbm_mc_short(measure, p: Union[float, int], para, T=5, size=1000000) -
     return con.s0*(pd.Series(data=tmp, index=para.index)-1)
 
 
-def backtest_stock(prices: pd.Series, T: int = 5) -> pd.Series:
-    '''function to compute stock price changes in days.
+def backtest_asset(prices: pd.Series, T: int = 5) -> pd.Series:
+    '''function to compute asset price changes in days.
 
     Args:
         prices: a sequence of stock price with datetime index.
@@ -282,7 +282,7 @@ def backtest_stock(prices: pd.Series, T: int = 5) -> pd.Series:
 
 
 def backtest_opt_stck(stock_prices: pd.Series, opt_prices: pd.Series, ratio: Union[int, float], T: int = 5) -> pd.Series:
-    '''function to compute stock price changes in days.
+    '''function to compute a portfolio of one stock and correponding s changes in days.
 
     Args:
         stock_prices: a sequence of stock price with datetime index.
@@ -292,7 +292,7 @@ def backtest_opt_stck(stock_prices: pd.Series, opt_prices: pd.Series, ratio: Uni
     Returns:
         a series of portfolio returns.
     '''
-    prices = stock_prices*(1-ratio)+opt_prices*ratio
+    prices = (stock_prices*(1-ratio)+opt_prices*ratio).dropna()
     return prices.rolling(window=T + 1, min_periods=T + 1).apply(lambda x: x[-1] / x[0] - 1, raw=True) * con.s0
 
 
@@ -401,4 +401,29 @@ def hedge_opt_stck(measure: str, p: Union[int, float], opt_type: str, proportion
     prev = [sample(mus[i], sigs[i], ops_price1[i], ops_price2[i], 0)
             for i in range(len(df))]
     # return optimize.fsolve(lambda x: risk_opt_stck(measure,p,option,x,para,seed=None,T=5,size=1000000)-prev*proportion,init,epsfcn=1e-4,xtol=1e-2)
-    return pd.Series([optimize.fsolve(lambda x: sample(mus[i], sigs[i], ops_price1[i], ops_price2[i], x)-prev[i]*proportion, init, epsfcn=1e-4)[0] for i in range(len(df))], index=df.index)
+    return pd.Series([optimize.fsolve(lambda x:sample(mus[i], sigs[i], ops_price1[i], ops_price2[i], x) - prev[i] * proportion, init, epsfcn=1e-4)[0] for i in range(len(df))], index=df.index)
+
+
+def hedge_delta(position: str, proportion: Union[int, float], risk_free: pd.Series, options_vol: pd.Series, T: int = 5) -> pd.Series:
+    '''function to give the ratio of initial capital to hedge partial risks with delta hedge using ATM options of the stock.
+
+    Args:
+        position: `long` or `short` stock.
+        proportion: the proportion of absolute price changes that the investor exposes to.
+        risk_free: annual Treasury Note of US bond of each day.
+        options_vol: the implied volatility of the ATM option with one-year maturity.
+        T: the number of days to estimate risk.
+
+    Return:
+        a series of ratio of initial capital to buy corresponding options
+    '''
+    assert position in ['long', 'short'], 'Wrong argument' + position
+    df = pd.concat([options_vol, risk_free], axis=1, join='inner').dropna()
+    df.columns = ['sig', 'r']
+    nd1 = stats.norm.cdf((df.r + df.sig ** 2 / 2) * T / df.sig / T ** 0.5)
+    if position == 'long':
+        bs = bs_option('put', df.r, df.sig, T, 1, 1)
+        return pd.Series((1 - proportion) * bs / (bs - nd1 + 1), index=df.index)
+    else:
+        bs = bs_option('call', df.r, df.sig, T, 1, 1)
+        return pd.Series((1 - proportion) * bs / (bs - nd1), index=df.index)

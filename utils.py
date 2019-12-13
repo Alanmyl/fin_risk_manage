@@ -48,8 +48,8 @@ def build_port2(num1, num2, file1: pd.Series, file2: pd.Series):
         num2: the number of stock2 at the beginning, it can be a number or an array-like type with the same length as `file2`.
         file1, file2: the adjusted price of the financial assets. It can be a sequence of price or a dataframe with a column named `adj_close`.
     '''
-    res = (file1*num1+file2*num2).to_frame(name='adj_close')
-    res['w'] = file1*num1/res.adj_close
+    res = (file1 * num1 + file2 * num2).to_frame(name='adj_close')
+    res['w'] = file1 * num1 / res.adj_close
     return res.dropna()
 
 
@@ -61,11 +61,11 @@ def build_portN(nums, files) -> pd.DataFrame:
         as that of the element in `files`, see function `build_port2`.
         files: a sequence of Series as the price of assets.
     '''
-    summ = np.sum([files[i].adj_close*nums[i]
+    summ = np.sum([files[i].adj_close * nums[i]
                    for i in range(len(files))], axis=0)
     res = pd.DataFrame()
     for i in range(len(files)):
-        res['w'+str(i+1)] = files[i].adj_close*nums[i]/summ
+        res['w' + str(i + 1)] = files[i].adj_close * nums[i] / summ
     return res
 
 
@@ -84,9 +84,9 @@ def bs_option(opt_type: str, r, sig, T, K, s0) -> Union[pd.Series, float]:
         A value or a sequence of values with datetime index.
     '''
     assert opt_type in ['call', 'put'], 'Wrong argument '+opt_type
-    d1 = (np.log(s0/K)+(r+sig**2/2)*T)/sig/T**0.5
-    d2 = d1-sig*T**0.5
+    d1 = (np.log(s0 / K) + (r + sig ** 2 / 2) * T) / sig / T ** 0.5
+    d2 = d1 - sig * T ** 0.5
     if opt_type == 'put':
-        return stats.norm.cdf(-d2)*K*np.exp(-r*T)-stats.norm.cdf(-d1)*s0
+        return stats.norm.cdf(-d2) * K * np.exp(-r * T) - stats.norm.cdf(-d1) * s0
     else:
-        return stats.norm.cdf(d1)*s0-stats.norm.cdf(d2)*K*np.exp(-r*T)
+        return stats.norm.cdf(d1) * s0 - stats.norm.cdf(d2) * K * np.exp(-r * T)
